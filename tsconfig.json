@@ -1,0 +1,27 @@
+{
+  "compilerOptions": {
+    "target": "ES2023",
+    "lib": ["ES2023", "DOM", "DOM.Iterable"],
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "types": ["node", "react"],
+
+    "strict": true,
+    "exactOptionalPropertyTypes": false,
+    "noUncheckedIndexedAccess": true,
+    "noImplicitOverride": true,
+    "verbatimModuleSyntax": true,
+    "isolatedModules": true,
+    "skipLibCheck": true,
+    "jsx": "react-jsx",
+
+    // 与 deepseek-harness 仓库一致：包内相对导入写显式 `.ts` 后缀。
+    // tsdown 直接解析源码，tsc 只做类型检查（noEmit），因此不需要产物重写。
+    "allowImportingTsExtensions": true,
+    "rewriteRelativeImportExtensions": true,
+
+    // tsc 只做类型检查，产物由 tsdown 生成，所以不需要 rootDir / outDir。
+    "noEmit": true
+  },
+  "include": ["src", "tsdown.config.ts"]
+}

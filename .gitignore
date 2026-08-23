@@ -1,0 +1,10 @@
+node_modules/
+# lib/ is committed so GitHub installs do not need to run prepare scripts.
+*.tgz
+*.log
+.DS_Store
+.env
+.env.*
+!.env.example
+
+dev/cordis.dev.local.yml

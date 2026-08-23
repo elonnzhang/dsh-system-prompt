@@ -1,0 +1,17 @@
+# 组合包（bundle）层：profile 列出本包时，dsh 把这一层叠加到生效配置树上。
+#
+# 语法要点
+#   - 文件是 patch 条目的 YAML 数组。
+#   - `insert:` 追加新行；不带 `id` 时插到顶层，带 `id` 时插到该 group 内部。
+#   - 用 `id` 键做覆盖：把要改的键写在同一个条目上，会覆盖前面各层同 id 的行。
+#     **没有 remove 操作** —— 要关掉一行就 patch `disabled: true`。
+#   - `config` 是**整体替换**，不是深度合并：覆盖一行就要重述它需要的每个键。
+#   - `!!js <表达式>` 在该行的 inject 解析完成后惰性求值，可用于读环境变量或提供方服务，
+#     例如 `!!js process.env.MY_FLAG === '1'`、`!!js ctx.myAppStartup.port ?? 8080`。
+#
+# 插件按**包名**引用，Node 的模块解析才能找到已安装的代码。
+# 相对/绝对源码路径只用于 `--patch` 开发 overlay。
+
+- insert:
+    - id: dsh-system-prompt
+      name: dsh-system-prompt
