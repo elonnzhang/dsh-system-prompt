@@ -15,8 +15,8 @@ const requiredFiles = [
   'lib/client.js',
   'lib/types/index.d.ts',
   'lib/types/client/index.d.ts',
-  'pics/conversation_view_tab.png',
-  'pics/trajectory_system_prompt_detail_tab.png',
+  'pics/conversation_view_tab.jpg',
+  'pics/trajectory_system_prompt_detail_tab.jpg',
   'cordis.patch.yml',
   'src/client/InspectionView.tsx',
 ]

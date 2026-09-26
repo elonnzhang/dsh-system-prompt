@@ -19,15 +19,14 @@ projection. It never serializes a live `Context`, `Agent`, `Session`, service,
 or Cordis object.
 
 
-## Screenshots (historical)
+## Screenshots
 
-These screenshots predate the tab renames and trajectory localization. The
-current conversation tab is `System Prompt` / `系统提示词`, and the trajectory
-detail tab is `Sections` / `组成部分`; the images illustrate the layout only.
+The screenshots show the Chinese `系统提示词` conversation tab and `组成部分`
+trajectory detail tab (English: `System Prompt` and `Sections`).
 
 | Conversation inspection | Trajectory system prompt details |
 | --- | --- |
-| ![Conversation inspection](pics/conversation_view_tab.png) | ![Trajectory system prompt details](pics/trajectory_system_prompt_detail_tab.png) |
+| ![Conversation inspection](pics/conversation_view_tab.jpg) | ![Trajectory system prompt details](pics/trajectory_system_prompt_detail_tab.jpg) |
 
 ## Build
 

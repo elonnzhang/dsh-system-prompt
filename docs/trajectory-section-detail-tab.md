@@ -168,8 +168,8 @@ overflow-wrap: anywhere;
 ## 9. 已验证行为
 
 以下是早期版本在源码 Web profile `http://127.0.0.1:52721` 的浏览器验收记录，
-用于说明 bridge 的选中态和布局行为；截图和此表均早于 `System Prompt` / `组成部分`
-文案更新，不代表本次代码的浏览器验收：
+用于说明 bridge 的选中态和布局行为；此表早于 `System Prompt` / `组成部分`
+文案更新，不代表本次代码的浏览器验收。当前界面截图见 [README](../README.md#screenshots)：
 
 | 场景 | 预期 | 结果 |
 |---|---|---|
