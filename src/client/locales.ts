@@ -3,6 +3,12 @@ export const NS = 'dsh-system-prompt'
 export type SystemPromptKey =
   | 'inspection'
   | 'sections'
+  | 'trajectory.sections'
+  | 'trajectory.heading'
+  | 'trajectory.noSession'
+  | 'trajectory.loading'
+  | 'trajectory.loadFailed'
+  | 'trajectory.empty'
   | 'contexts'
   | 'injectedMessages'
   | 'variables'
@@ -14,6 +20,7 @@ export type SystemPromptKey =
   | 'origin.agent'
   | 'loading'
   | 'retry'
+  | 'refresh'
   | 'unavailable'
   | 'empty'
   | 'noValue'
@@ -27,8 +34,14 @@ export type SystemPromptKey =
   | 'form.recall'
 
 export const zh: Record<SystemPromptKey, string> = {
-  inspection: '会话检查',
-  sections: '系统提示词段落',
+  inspection: '系统提示词',
+  sections: '系统提示词组成部分',
+  'trajectory.sections': '组成部分',
+  'trajectory.heading': '系统提示词组成部分',
+  'trajectory.noSession': '暂无当前会话',
+  'trajectory.loading': '正在读取系统提示词组成部分…',
+  'trajectory.loadFailed': '无法读取系统提示词组成部分',
+  'trajectory.empty': '暂无组成部分',
   contexts: '动态上下文',
   injectedMessages: '注入消息',
   variables: '变量',
@@ -40,6 +53,7 @@ export const zh: Record<SystemPromptKey, string> = {
   'origin.agent': 'Agent',
   loading: '读取会话提示词…',
   retry: '重试',
+  refresh: '刷新',
   unavailable: '连接不可用',
   empty: '暂无记录',
   noValue: '未解析',
@@ -54,8 +68,14 @@ export const zh: Record<SystemPromptKey, string> = {
 }
 
 export const en: Record<SystemPromptKey, string> = {
-  inspection: 'PromptInspection',
+  inspection: 'System Prompt',
   sections: 'System Prompt Sections',
+  'trajectory.sections': 'Sections',
+  'trajectory.heading': 'System Prompt Sections',
+  'trajectory.noSession': 'No current session',
+  'trajectory.loading': 'Loading system prompt sections…',
+  'trajectory.loadFailed': 'Unable to load system prompt sections',
+  'trajectory.empty': 'No system prompt sections',
   contexts: 'Runtime Contexts',
   injectedMessages: 'Injected Messages',
   variables: 'Variables',
@@ -67,6 +87,7 @@ export const en: Record<SystemPromptKey, string> = {
   'origin.agent': 'Agent',
   loading: 'Reading session prompt…',
   retry: 'Retry',
+  refresh: 'Refresh',
   unavailable: 'Connection unavailable',
   empty: 'No records',
   noValue: 'Unresolved',

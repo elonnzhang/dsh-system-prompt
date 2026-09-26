@@ -6,6 +6,9 @@
 让用户查看当前 live session 组装后的 prompt sections，同时保持上游
 `System Prompt`、`Tools` 和 `Diff` tab 的原生视觉与选中语义。
 
+中文界面中 tab 显示为“组成部分”，详情标题、空状态和来源标签同样使用插件词典；
+切换语言时已打开的详情会重新渲染。
+
 Section 只读，不修改 trajectory 记录，也不把历史 request 的 prompt decomposition
 伪装成当前实时 assembly。
 
@@ -17,7 +20,7 @@ Section 只读，不修改 trajectory 记录，也不把历史 request 的 promp
 bridge 只依赖稳定的可访问性/元素契约：
 
 ```text
-[role="tablist"][aria-label="Event details"]
+[role="tablist"]
   #trajectory-detail-system-prompt
   #trajectory-detail-tools
   #trajectory-detail-diff       # Updated record 才有
@@ -48,7 +51,7 @@ apply
 - 原生 active/base class snapshot
 - tablist 的 selected observer
 - 原生 tab click disposer
-- request counter 和当前 sessionId
+- request counter 和在途请求的 `AbortController`（sessionId 每次点击时从 `sessions.list` 读取）
 
 状态用可枚举 `Map<HTMLElement, DetailState>` 保存。tablist 脱离 DOM 后会被清理，
 避免 HMR 或 React 重建留下重复 tab、监听器和异步请求。
@@ -70,15 +73,14 @@ class。选择 Section 时：
 ## 5. Section 数据流
 
 ```text
-ctx.sessions.list.getSnapshot().current
+ctx.sessions.list.getSnapshot().byId 中 retainedBy.mainView > 0 的行
   -> sessionId
   -> rpc.call('/dsh-system-prompt', 'session', { sessionId })
   -> SessionInspection.prompt.sections
   -> textContent + disclosure rows
 ```
 
-请求使用递增 `state.request` 防止迟到响应污染当前 panel。panel 隐藏、bridge 被
-替换、session 改变或新请求开始时，旧结果都会被丢弃。
+每次进入 Section 都重新读取当前 live assembly。请求使用递增 `state.request` 防止迟到响应污染当前 panel；panel 隐藏、bridge 被替换或新请求开始时，旧结果都会被丢弃。切换语言时刷新 tab 文案，已打开的详情会重新加载。
 
 每行显示 section name、scope origin 和 text。文本用 `textContent` 写入，避免将
 prompt 当作 HTML 执行。
@@ -104,7 +106,7 @@ panel 必须复用同一规则：
 
 - body observer 只监听 `childList`，不监听全页 attributes。
 - 只有涉及 detail tablist/panel 的 mutation 才 schedule scan。
-- `requestAnimationFrame` 合并同一帧内的重复扫描。
+- `requestAnimationFrame` 合并同一帧内的重复扫描；切换 tab 或卸载时中止在途请求。
 - tablist 内的 selected observer 只监听 `aria-selected`。
 - Host RPC 只返回拥有的 JSON；Client 不序列化 live session 对象。
 - bridge 的所有 DOM、observer、listener 和 style 资源都可逆。
@@ -113,7 +115,7 @@ panel 必须复用同一规则：
 
 这是兼容性 bridge，不是上游正式扩展 API。以下任一契约变化都需要同步：
 
-- `aria-label="Event details"`
+- 原生 tablist 的 `role="tablist"`
 - `trajectory-detail-system-prompt`
 - `trajectory-detail-tools`
 - `trajectory-detail-panel`

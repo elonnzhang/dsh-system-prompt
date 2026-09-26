@@ -19,6 +19,7 @@
 ## 2. 产品入口
 
 Client 在 `conversation.view` slot 注册一个入口：
+显示名称为英文 `System Prompt`、中文 `系统提示词`；内部 `id` 仍为 `inspection`。
 
 ```ts
 {
@@ -82,10 +83,10 @@ Host 只读取 live agent 的叶字段，构造 `SessionInspection` 后跨 RPC �
 | `prompt.contexts` | 同一 `systemPrompt.assemble(...)` 的 `contexts` | 动态 runtime context 条目，不是工具 schema。 |
 | `prompt.variables` | 同一 assembly 的 `variables` | assembly 返回的变量键值，值统一转换为字符串或未解析。 |
 | `tools` | `tools.schemas(scope)` | 使用 agent scope 的当前可见工具 schema，包含名称、描述和参数。 |
-| `injectedMessages` | `agent.session.events` | 仅投影 producer-supplied plugin/skill/context 消息，并计算近似 token 数。 |
+| `injectedMessages` | `agent.session.snapshotEvents()` | 仅投影 producer-supplied plugin/skill/context 消息，并计算近似 token 数。 |
 
 作用域标记的比较来源也明确分开：global 使用无 scope 的 prompt/tools 服务结果，preset
-使用 `agentPresets.standingKeyFor(agentPreset)` 得到的 scope，agent 使用当前 agent
+使用 `agentPresets.acquireScope(agentPreset)` 的租约获取 scope 并在读取后释放，agent 使用当前 agent
 context 的 scope。三者都传入同一个 agent，以避免动态 provider（如 model、cwd）被误判为
 agent 注入。
 

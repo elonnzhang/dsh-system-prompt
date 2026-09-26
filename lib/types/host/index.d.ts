@@ -7,7 +7,7 @@ interface AgentLike {
     options?: Dict;
     session?: {
         header?: Dict;
-        events?: readonly unknown[];
+        snapshotEvents?: () => readonly unknown[];
     };
     status?: unknown;
     ctx?: Context;

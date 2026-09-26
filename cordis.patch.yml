@@ -12,6 +12,9 @@
 # 插件按**包名**引用，Node 的模块解析才能找到已安装的代码。
 # 相对/绝对源码路径只用于 `--patch` 开发 overlay。
 
+- id: connection
+  inject: [webRuntime, webServer]
+
 - insert:
     - id: dsh-system-prompt
       name: dsh-system-prompt

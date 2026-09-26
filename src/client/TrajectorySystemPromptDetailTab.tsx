@@ -5,12 +5,17 @@
  * renders and keeps all section data on the existing read-only RPC boundary.
  */
 
-import type { ClientContext } from '@deepseek-ai/dsh-client-runtime/client'
+import type { Context as ClientContext } from '@deepseek-ai/cordis'
 import type { ScopedPromptSectionEntry, SessionInspection } from '../types.ts'
-import { loadSession, type ClientConnection } from './data.ts'
+import { loadSession, type ClientConnection, type Translate } from './data.ts'
+import { NS } from './locales.ts'
 
 interface SessionsLike {
-  list?: { getSnapshot(): { current?: unknown } }
+  list?: {
+    getSnapshot(): {
+      byId?: Record<string, { id?: unknown; retainedBy?: { mainView?: number } } | undefined>
+    }
+  }
 }
 
 interface DetailState {
@@ -23,7 +28,7 @@ interface DetailState {
   readonly selectionObserver: MutationObserver
   readonly boundTabDisposers: (() => void)[]
   request: number
-  sessionId?: string
+  controller?: AbortController
 }
 
 let panelSequence = 0
@@ -40,6 +45,7 @@ export function installTrajectorySystemPromptDetailTab(ctx: ClientContext): void
     const token = {}
     const connection = ctx.get('connection') as ClientConnection | undefined
     const sessions = ctx.get('sessions') as SessionsLike | undefined
+    const t = ctx.locale.bind(NS)
     const states = new Map<HTMLElement, DetailState>()
     let scheduled = false
     let frame: number | undefined
@@ -47,15 +53,16 @@ export function installTrajectorySystemPromptDetailTab(ctx: ClientContext): void
     const scan = (): void => {
       scheduled = false
       frame = undefined
-      const tablists = document.querySelectorAll<HTMLElement>('[role="tablist"][aria-label="Event details"]')
+      const tablists = new Set<HTMLElement>()
+      for (const tab of document.querySelectorAll<HTMLElement>('#trajectory-detail-system-prompt, #trajectory-detail-tools')) {
+        const tablist = tab.closest<HTMLElement>('[role="tablist"]')
+        if (tablist !== null) tablists.add(tablist)
+      }
       const seen = new Set<HTMLElement>()
       for (const tablist of tablists) {
         seen.add(tablist)
-        syncTablist(tablist, connection, sessions, states, schedule)
+        syncTablist(tablist, connection, sessions, states, schedule, t)
       }
-      // A removed detail view will not appear in the next querySelectorAll
-      // result. Release its observers, listeners, and injected nodes instead
-      // of retaining a detached tablist until plugin unload.
       for (const [tablist, state] of states) {
         if (seen.has(tablist)) continue
         removeSectionState(state)
@@ -80,7 +87,14 @@ export function installTrajectorySystemPromptDetailTab(ctx: ClientContext): void
     if (document.body === null) return () => {}
     observer.observe(document.body, { childList: true, subtree: true })
     scan()
+    const disposeLocale = ctx.locale.subscribe(() => {
+      scan()
+      for (const state of states.values()) {
+        if (state.sectionTab.getAttribute('aria-selected') === 'true') activateSection(state, connection, sessions, t)
+      }
+    })
     const dispose = () => {
+      disposeLocale()
       observer.disconnect()
       if (frame !== undefined) cancelAnimationFrame(frame)
       for (const state of states.values()) removeSectionState(state)
@@ -97,8 +111,8 @@ export function installTrajectorySystemPromptDetailTab(ctx: ClientContext): void
 
 function isDetailMutation(node: Node): boolean {
   if (!(node instanceof Element)) return false
-  if (node.matches('[role="tablist"][aria-label="Event details"], #trajectory-detail-panel, [data-dsh-system-prompt-trajectory-tab="true"], .dsh-system-prompt-trajectory-section-panel')) return true
-  return node.querySelector('[role="tablist"][aria-label="Event details"], #trajectory-detail-panel') !== null
+  if (node.matches('[role="tablist"], #trajectory-detail-panel, #trajectory-detail-system-prompt, #trajectory-detail-tools, [data-dsh-system-prompt-trajectory-tab="true"], .dsh-system-prompt-trajectory-section-panel')) return true
+  return node.querySelector('#trajectory-detail-system-prompt, #trajectory-detail-tools, #trajectory-detail-panel') !== null
 }
 
 function syncTablist(
@@ -107,6 +121,7 @@ function syncTablist(
   sessions: SessionsLike | undefined,
   states: Map<HTMLElement, DetailState>,
   schedule: () => void,
+  t: Translate,
 ): void {
   const systemTab = tablist.querySelector<HTMLButtonElement>('#trajectory-detail-system-prompt')
   const toolsTab = tablist.querySelector<HTMLButtonElement>('#trajectory-detail-tools')
@@ -141,8 +156,8 @@ function syncTablist(
       sectionTab.dataset.dshSystemPromptTrajectoryTab = 'true'
       sectionTab.setAttribute('role', 'tab')
       sectionTab.setAttribute('aria-controls', `dsh-system-prompt-trajectory-detail-panel-${++panelSequence}`)
-      sectionTab.textContent = 'Sections'
     }
+    sectionTab.textContent = t('trajectory.sections')
     sectionTab.dataset.dshSystemPromptTrajectoryBaseClass = baseClassName
     sectionTab.dataset.dshSystemPromptTrajectoryActiveClass = activeClassName
     sectionTab.className = baseClassName
@@ -172,13 +187,18 @@ function syncTablist(
       request: 0,
     }
     states.set(tablist, state)
-    sectionTab.onclick = () => activateSection(state!, connection, sessions)
+    sectionTab.onclick = () => activateSection(state!, connection, sessions, t)
   }
+  const sectionLabel = t('trajectory.sections')
+  if (state.sectionTab.textContent !== sectionLabel) state.sectionTab.textContent = sectionLabel
 
   for (const tab of tablist.querySelectorAll<HTMLButtonElement>('[role="tab"]')) {
     if (tab === state.sectionTab || tab.dataset.dshSystemPromptTrajectoryBound === 'true') continue
     tab.dataset.dshSystemPromptTrajectoryBound = 'true'
     const onClick = () => {
+      state!.controller?.abort()
+      state!.controller = undefined
+      state!.request += 1
       for (const candidate of state!.tablist.querySelectorAll<HTMLButtonElement>('[role="tab"]')) {
         const selected = candidate === tab
         setSelected(candidate, selected)
@@ -205,6 +225,7 @@ function syncTablist(
 }
 
 function removeSectionState(state: DetailState): void {
+  state.controller?.abort()
   state.selectionObserver.disconnect()
   for (const dispose of state.boundTabDisposers.splice(0)) dispose()
   state.sectionTab.onclick = null
@@ -218,25 +239,28 @@ function activateSection(
   state: DetailState,
   connection: ClientConnection | undefined,
   sessions: SessionsLike | undefined,
+  t: Translate,
 ): void {
+  state.controller?.abort()
+  state.controller = undefined
   selectSectionTab(state)
   state.originalPanel.hidden = true
   state.sectionPanel.hidden = false
+  const request = ++state.request
   const sessionId = currentSessionId(sessions)
   if (sessionId === undefined) {
-    renderMessage(state.sectionPanel, 'No current session')
+    renderMessage(state.sectionPanel, t('trajectory.noSession'))
     return
   }
-  if (state.sessionId === sessionId && state.sectionPanel.childElementCount > 0) return
-  state.sessionId = sessionId
-  const request = ++state.request
-  renderMessage(state.sectionPanel, 'Loading system prompt sections…')
-  void loadSession(connection, sessionId).then(inspection => {
+  const controller = new AbortController()
+  state.controller = controller
+  renderMessage(state.sectionPanel, t('trajectory.loading'))
+  void loadSession(connection, sessionId, controller.signal).then(inspection => {
     if (state.request !== request || state.sectionPanel.hidden) return
-    renderSections(state.sectionPanel, inspection)
+    renderSections(state.sectionPanel, inspection, t)
   }).catch(error => {
-    if (state.request !== request || state.sectionPanel.hidden) return
-    renderMessage(state.sectionPanel, error instanceof Error ? error.message : 'Unable to load system prompt sections')
+    if (state.request !== request || state.sectionPanel.hidden || controller.signal.aborted) return
+    renderMessage(state.sectionPanel, error instanceof Error ? error.message : t('trajectory.loadFailed'))
   })
 }
 
@@ -260,27 +284,34 @@ function setSelected(tab: HTMLElement, selected: boolean): void {
 
 function currentSessionId(sessions: SessionsLike | undefined): string | undefined {
   try {
-    const current = sessions?.list?.getSnapshot().current
-    return typeof current === 'string' && current !== '' ? current : undefined
+    const byId = sessions?.list?.getSnapshot().byId
+    if (byId === undefined) return undefined
+    for (const row of Object.values(byId)) {
+      if (row === undefined) continue
+      if ((row.retainedBy?.mainView ?? 0) <= 0) continue
+      const id = row.id
+      if (typeof id === 'string' && id !== '') return id
+    }
+    return undefined
   } catch {
     return undefined
   }
 }
 
-function renderSections(panel: HTMLElement, inspection: SessionInspection): void {
+function renderSections(panel: HTMLElement, inspection: SessionInspection, t: Translate): void {
   panel.replaceChildren()
   const header = document.createElement('div')
   header.className = 'dsh-system-prompt-trajectory-section-header'
-  header.textContent = `System Prompt Sections (${inspection.prompt.sections.length})`
+  header.textContent = `${t('trajectory.heading')} (${inspection.prompt.sections.length})`
   panel.appendChild(header)
   if (inspection.prompt.sections.length === 0) {
-    renderMessage(panel, 'No system prompt sections', true)
+    renderMessage(panel, t('trajectory.empty'), true)
     return
   }
-  for (const section of inspection.prompt.sections) panel.appendChild(sectionRow(section))
+  for (const section of inspection.prompt.sections) panel.appendChild(sectionRow(section, t))
 }
 
-function sectionRow(section: ScopedPromptSectionEntry): HTMLDetailsElement {
+function sectionRow(section: ScopedPromptSectionEntry, t: Translate): HTMLDetailsElement {
   const details = document.createElement('details')
   details.className = 'dsh-system-prompt-trajectory-section-row'
   details.open = true
@@ -288,13 +319,13 @@ function sectionRow(section: ScopedPromptSectionEntry): HTMLDetailsElement {
   const origin = document.createElement('span')
   origin.className = 'dsh-system-prompt-trajectory-section-origin'
   origin.dataset.origin = section.origin
-  origin.textContent = section.origin
+  origin.textContent = t(`origin.${section.origin}`)
   summary.append(origin)
   if (section.name.startsWith('tool:')) {
     const category = document.createElement('span')
     category.className = 'dsh-system-prompt-trajectory-section-category'
     category.dataset.category = 'tool'
-    category.textContent = 'TOOL'
+    category.textContent = t('origin.tool')
     summary.appendChild(category)
   }
   summary.appendChild(document.createTextNode(section.name))

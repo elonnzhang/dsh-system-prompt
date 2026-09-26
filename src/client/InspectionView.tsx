@@ -1,9 +1,7 @@
 import * as React from 'react'
 import {
-  IconChevronLeftOutline14,
-  IconRefreshOutline14,
-  IconApiOutline14,
-  IconCordisPluginOutline14,
+  IconChevronLeftOutlineRegular,
+  IconRefreshOutlineRegular,
 } from '@deepseek-ai/dsh-client-ui-primitives'
 import type {
   ScopedContextEntry,
@@ -67,14 +65,14 @@ export function InspectionView({ sessionId, connection, t: rawT, compact = false
         onClick: onBack,
         'aria-label': t('back'),
         title: t('back'),
-      }, h(IconChevronLeftOutline14, { size: 14 })),
+      }, h(IconChevronLeftOutlineRegular, { size: 14 })),
       h('button', {
         type: 'button',
         className: 'dsh-system-prompt-icon-button',
         onClick: () => setRetry(value => value + 1),
         'aria-label': t('refresh'),
         title: t('refresh'),
-      }, h(IconRefreshOutline14, { size: 14 })),
+      }, h(IconRefreshOutlineRegular, { size: 14 })),
     ),
   )
 
@@ -152,7 +150,7 @@ function InjectedMessageList({ entries, t }: { entries: readonly ScopedInjectedM
   return h('div', null, entries.map(entry => h('details', { className: 'dsh-system-prompt-details', key: `${entry.sub}:${entry.plugin}:${entry.seq}` },
     h('summary', null,
       h('span', { className: 'dsh-system-prompt-injected-plugin' }, entry.plugin),
-      h('span', { className: 'dsh-system-prompt-injected-form' }, t(`form.${entry.form}`)),
+      h('span', { className: 'dsh-system-prompt-injected-form' }, formLabel(entry.form, t)),
       h('span', { className: 'dsh-system-prompt-injected-tokens' }, `+${entry.tokens} tokens`),
     ),
     h('div', { className: 'dsh-system-prompt-description dsh-system-prompt-prompt-text' }, displayValue(entry.text)),
@@ -195,10 +193,15 @@ function emptyRow(t: Translate) {
   return h('div', { className: 'dsh-system-prompt-empty' }, t('empty'))
 }
 
-export function InspectionIcon() {
-  return h(IconApiOutline14, { size: 14 })
-}
-
-export function PluginIcon() {
-  return h(IconCordisPluginOutline14, { size: 14 })
+function formLabel(form: string, t: Translate): string {
+  switch (form) {
+    case 'context': return t('form.context')
+    case 'instructions': return t('form.instructions')
+    case 'catalog': return t('form.catalog')
+    case 'snapshot': return t('form.snapshot')
+    case 'notice': return t('form.notice')
+    case 'relay': return t('form.relay')
+    case 'recall': return t('form.recall')
+    default: return form
+  }
 }

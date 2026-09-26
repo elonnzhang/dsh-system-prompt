@@ -1,4 +1,5 @@
 import type { SessionInspection } from '../types.ts'
+import type { SystemPromptKey } from './locales.ts'
 
 /** Minimal browser connection face used by the pure presentation components. */
 export interface ClientConnection {
@@ -18,10 +19,7 @@ interface ClientRpcResult {
   error?: { code?: unknown; message?: unknown }
 }
 
-// `locale.bind()` narrows its first argument to the registered dictionary
-// union. The presentation layer intentionally accepts the wider runtime face
-// because it also builds dynamic origin keys (`origin.${scope}`).
-export type Translate = (key: any, params?: Record<string, unknown>) => string
+export type Translate = (key: SystemPromptKey, params?: Record<string, unknown>) => string
 
 export async function loadSession(
   connection: ClientConnection | undefined,

@@ -19,7 +19,11 @@ projection. It never serializes a live `Context`, `Agent`, `Session`, service,
 or Cordis object.
 
 
-## Screenshots
+## Screenshots (historical)
+
+These screenshots predate the tab renames and trajectory localization. The
+current conversation tab is `System Prompt` / `系统提示词`, and the trajectory
+detail tab is `Sections` / `组成部分`; the images illustrate the layout only.
 
 | Conversation inspection | Trajectory system prompt details |
 | --- | --- |
@@ -45,6 +49,8 @@ dsh plugin --profile web add github:elonnzhang/dsh-system-prompt
 
 The repository commits its `lib/` bundle, so this GitHub install does not need
 to execute a package build script or modify the profile `allowBuilds` list.
+The bundle also supplies the Web Connection's `webServer` injection required
+for plugin RPC channels; no separate profile-local RPC patch is needed.
 For local source development, run `npm run build` explicitly before testing.
 
 ## Test with deepseek-harness
@@ -61,16 +67,21 @@ pnpm dsh plugin --profile web add link:/Users/elon/code-space/GitHub/dsh-system-
 pnpm dsh web --no-open --port 3080
 ```
 
-Open <http://127.0.0.1:3080>. The watcher rebuilds `lib/` after changes under
+Open the URL printed by `dsh web` (including its launch `token` on first
+visit); a bare <http://127.0.0.1:3080> returns 401 without an existing browser
+session. The watcher rebuilds `lib/` after changes under
 `src/` or `scripts/`; refresh the Harness page when the browser bundle is
 reloaded. Verify both the conversation inspection view and the trajectory
 `System Prompt / Tools / Sections` detail flow. For a clean one-off check,
-`npm test` validates types, generated bundles, JavaScript syntax, and the smoke
-contract before starting Harness.
+`npm test` validates types, generated bundles, JavaScript syntax, the smoke
+contract, and host RPC runtime checks before starting Harness.
 
 
 
 ## Provenance boundary
+
+There is no `./invariant` export: this plugin owns no independent mutable
+relationship outside Cordis effects to check.
 
 Prompt, context, variable, and tool ownership is reported at `global` / `preset`
 / `agent` scope. The underlying registries do not retain the registering Fiber,

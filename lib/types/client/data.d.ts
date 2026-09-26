@@ -1,4 +1,5 @@
 import type { SessionInspection } from '../types.ts';
+import type { SystemPromptKey } from './locales.ts';
 /** Minimal browser connection face used by the pure presentation components. */
 export interface ClientConnection {
     rpc?: {
@@ -13,7 +14,7 @@ interface ClientRpcResult {
         message?: unknown;
     };
 }
-export type Translate = (key: any, params?: Record<string, unknown>) => string;
+export type Translate = (key: SystemPromptKey, params?: Record<string, unknown>) => string;
 export declare function loadSession(connection: ClientConnection | undefined, sessionId: string, signal?: AbortSignal): Promise<SessionInspection>;
 export declare function translateOf(t: Translate | undefined): Translate;
 export declare function displayValue(value: string | undefined): string;

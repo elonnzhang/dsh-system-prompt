@@ -29,7 +29,7 @@
 因此 dsh-system-prompt 不能在这个位置调用 `ctx.slots.register()`。插件改为使用 `TrajectoryTable` 输出的稳定可访问性/元素契约，实现一个严格限域的 DOM bridge：
 
 ```text
-[role="tablist"][aria-label="Event details"]
+[role="tablist"]
   #trajectory-detail-system-prompt
   #trajectory-detail-tools
   #trajectory-detail-diff              # 仅更新记录存在
@@ -86,7 +86,7 @@ document.__dshSystemPromptTrajectoryDetailBridge__ = { token, dispose }
 - 注入的 Sections tab 和 Sections panel
 - 从原生 tab 复制的 base/active class
 - tablist 选中态 observer
-- 用于取消过期异步结果的 session/request identity
+- 用于取消过期异步结果的 request counter 和 `AbortController`；sessionId 在打开 tab 时读取
 
 如果 React 重建了注入节点，`isConnected` 会变成 false，bridge 只重建一组 tab/panel。选中记录不是 system prompt 时，state 被释放，注入节点被移除。
 
@@ -122,7 +122,7 @@ Section panel 同时复用原生 `detailBody` 的滚动安全区：
 用户打开 Sections 时：
 
 ```text
-ctx.sessions.list.getSnapshot().current
+ctx.sessions.list.getSnapshot().byId 中 retainedBy.mainView > 0 的行
   -> current SessionId
   -> connection.rpc.call('/dsh-system-prompt', 'session', { sessionId })
   -> SessionInspection.prompt.sections
@@ -158,7 +158,7 @@ overflow-wrap: anywhere;
 
 选择原生 tab 时反向切换 panel 可见性，并且只恢复被点击 tab 的原生 active 状态。
 
-每次加载都会递增 `state.request`。以下情况下，迟到的 RPC 响应会被忽略：
+每次进入 Section 都重新加载并递增 `state.request`。切换 tab 或卸载时中止在途请求；以下情况下，迟到的 RPC 响应会被忽略：
 
 - 用户切换了轨迹记录
 - Section panel 已隐藏
@@ -167,7 +167,9 @@ overflow-wrap: anywhere;
 
 ## 9. 已验证行为
 
-使用源码启动的 Web profile `http://127.0.0.1:52721` 验证：
+以下是早期版本在源码 Web profile `http://127.0.0.1:52721` 的浏览器验收记录，
+用于说明 bridge 的选中态和布局行为；截图和此表均早于 `System Prompt` / `组成部分`
+文案更新，不代表本次代码的浏览器验收：
 
 | 场景 | 预期 | 结果 |
 |---|---|---|
@@ -194,7 +196,7 @@ node --check lib/client.js
 
 这是 compatibility bridge，不是 first-class trajectory extension API。它依赖以下 ui-trajectory DOM 契约：
 
-- `aria-label="Event details"`
+- 原生 tablist 的 `role="tablist"`
 - `trajectory-detail-system-prompt`
 - `trajectory-detail-tools`
 - `trajectory-detail-panel`
@@ -203,7 +205,7 @@ node --check lib/client.js
 
 Section 数据来自 dsh-system-prompt 返回的当前 live session assembly，不是选中轨迹记录里持久化的历史 decomposition。模型或配置切换后，它描述当前有效的 section 集合；若要还原每次 request 当时的完整 section 与 owner，需要 Harness 新增 durable data。
 
-数据来源链路：`ctx.sessions.list.getSnapshot().current` 提供当前 session ID，随后通过
+数据来源链路：从 `ctx.sessions.list.getSnapshot().byId` 中查找 `retainedBy.mainView > 0` 的当前 session ID，随后通过
 `connection.rpc.call('/dsh-system-prompt', 'session', { sessionId })` 请求 Host；Host
 从 `agents.get(sessionId)` 取得 live agent，调用 `systemPrompt.assemble(...)`，最后由
 本 bridge 只读取 `SessionInspection.prompt.sections` 并用 `textContent` 渲染。该 tab 不读取

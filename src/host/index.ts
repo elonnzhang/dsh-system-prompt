@@ -44,7 +44,7 @@ interface ToolsServiceLike {
 interface AgentLike {
   id?: unknown
   options?: Dict
-  session?: { header?: Dict; events?: readonly unknown[] }
+  session?: { header?: Dict; snapshotEvents?: () => readonly unknown[] }
   status?: unknown
   ctx?: Context
 }
@@ -55,16 +55,22 @@ interface AgentsServiceLike {
 }
 
 interface AgentPresetsLike {
-  standingKeyFor?(id?: string): Promise<object>
+  acquireScope?(id?: string): Promise<PresetScopeLease>
   composedPreset?(ctx: Context): string | undefined
+}
+
+// The registry returns `{ key } & AsyncDisposable`. Model the lease locally so
+// the plugin does not depend on the ESNext.Disposable lib just to read it; the
+// disposer is read dynamically through `disposeLease`.
+interface PresetScopeLease {
+  key: object
 }
 
 interface ConnectionLike {
   rpc?: {
     handle: (
       channel: string,
-      handler: (endpoint: string, payload: unknown, signal: AbortSignal) => Promise<RpcResultLike<unknown>>,
-      options: { authority: 'trusted-host' | 'loopback' },
+      handler: (endpoint: string, payload: unknown, signal: AbortSignal, peer?: unknown) => Promise<RpcResultLike<unknown>>,
     ) => (() => void | Promise<void>)
   }
 }
@@ -94,7 +100,6 @@ export function apply(ctx: Context): void {
     return connection.rpc.handle(
       CHANNEL,
       (endpoint, payload, signal) => handleEndpoint(ctx, endpoint, payload, signal),
-      { authority: 'loopback' },
     )
   }, 'dsh-system-prompt: rpc')
 }
@@ -201,10 +206,14 @@ async function presetAssemblyOf(
   agent?: unknown,
   signal?: AbortSignal,
 ): Promise<PromptAssemblyLike> {
-  if (presetId === undefined || presets?.standingKeyFor === undefined) return EMPTY_ASSEMBLY
+  if (presetId === undefined || presets?.acquireScope === undefined) return EMPTY_ASSEMBLY
   try {
-    const key = await presets.standingKeyFor(presetId)
-    return await assemble(service, { scope: key, agent, signal })
+    const lease = await presets.acquireScope(presetId)
+    try {
+      return await assemble(service, { scope: lease.key, agent, signal })
+    } finally {
+      await disposeLease(lease)
+    }
   } catch {
     return EMPTY_ASSEMBLY
   }
@@ -215,10 +224,14 @@ async function presetToolsOf(
   presetId: string | undefined,
   service: ToolsServiceLike | undefined,
 ): Promise<readonly ToolSchemaLike[]> {
-  if (presetId === undefined || presets?.standingKeyFor === undefined || service?.schemas === undefined) return []
+  if (presetId === undefined || presets?.acquireScope === undefined || service?.schemas === undefined) return []
   try {
-    const key = await presets.standingKeyFor(presetId)
-    return readTools(service, key)
+    const lease = await presets.acquireScope(presetId)
+    try {
+      return readTools(service, lease.key)
+    } finally {
+      await disposeLease(lease)
+    }
   } catch {
     return []
   }
@@ -359,6 +372,17 @@ function estimateMessage(content: readonly unknown[] | undefined): number {
   return tokens
 }
 
+function readSessionEvents(agent: AgentLike): readonly unknown[] {
+  const snapshot = agent.session?.snapshotEvents
+  if (typeof snapshot !== 'function') return []
+  try {
+    const events = snapshot.call(agent.session)
+    return Array.isArray(events) ? events : []
+  } catch {
+    return []
+  }
+}
+
 /**
  * Project injected `user/message` events (plugin, skill-invocation, or any
  * form-declared context) into compact inspection rows, in surface (log) order.
@@ -370,8 +394,8 @@ function estimateMessage(content: readonly unknown[] | undefined): number {
  *   session is not yet attached.
  */
 function projectInjectedMessages(agent: AgentLike): ScopedInjectedMessageEntry[] {
-  const events = agent.session?.events
-  if (!Array.isArray(events)) return []
+  const events = readSessionEvents(agent)
+  if (events.length === 0) return []
   const rows: ScopedInjectedMessageEntry[] = []
   for (const rawEvent of events) {
     const event = recordValue(rawEvent) as SessionEventLike | undefined
@@ -486,6 +510,16 @@ function readService<T>(ctx: Context | undefined, name: string): T | undefined {
   if (ctx === undefined) return undefined
   try { return ctx.get(name) as T | undefined }
   catch { return undefined }
+}
+
+// The preset scope lease is an AsyncDisposable. Read its disposer dynamically so
+// the read stays revision-safe without pulling in the ESNext.Disposable lib.
+async function disposeLease(lease: PresetScopeLease): Promise<void> {
+  const dispose = (lease as unknown as Record<PropertyKey, unknown>)[Symbol.asyncDispose]
+  if (typeof dispose !== 'function') return
+  try {
+    await dispose.call(lease)
+  } catch {}
 }
 
 function recordValue(value: unknown): Dict | undefined {
