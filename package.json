@@ -2,6 +2,7 @@
   "name": "dsh-system-prompt",
   "version": "0.1.0",
   "description": "DeepSeek Harness plugin for inspecting live session system prompts and injected context",
+  "repository": "https://github.com/elonnzhang/dsh-system-prompt",
   "license": "MIT",
   "type": "module",
   "main": "./lib/index.js",
