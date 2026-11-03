@@ -1,5 +1,6 @@
 node_modules/
 # lib/ is committed so GitHub installs do not need to run prepare scripts.
+.pnpm-store/
 *.tgz
 *.log
 .DS_Store

@@ -5,6 +5,7 @@ import { apply, inject } from '../lib/index.js'
 
 test('session RPC returns owned data and leaves with its plugin', async () => {
   const ctx = new Context()
+  ctx.provide('webServer', { register: () => () => {} })
   let handler
   let registered = false
   ctx.provide('connection', { rpc: {
@@ -44,6 +45,7 @@ test('session RPC returns owned data and leaves with its plugin', async () => {
 
 test('inspection releases preset scope leases after prompt and tool reads', async () => {
   const ctx = new Context()
+  ctx.provide('webServer', { register: () => () => {} })
   let handler
   const scopeKey = {}
   const assemblyScopes = []

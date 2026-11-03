@@ -48,8 +48,12 @@ dsh plugin --profile web add github:elonnzhang/dsh-system-prompt
 
 The repository commits its `lib/` bundle, so this GitHub install does not need
 to execute a package build script or modify the profile `allowBuilds` list.
-The bundle also supplies the Web Connection's `webServer` injection required
-for plugin RPC channels; no separate profile-local RPC patch is needed.
+The bundle only inserts its own row. In 0.2.x, `connection.rpc.handle()`
+registers the channel through the Context that reads the service
+(`owner.webServer.register(...)`), so the host half installs the channel from
+`ctx.inject(['webServer'], ...)`; the Web Connection row itself is left
+untouched (it keeps its own `webStartup` injection), so no profile-local RPC
+patch is needed.
 For local source development, run `npm run build` explicitly before testing.
 
 ## Test with deepseek-harness
