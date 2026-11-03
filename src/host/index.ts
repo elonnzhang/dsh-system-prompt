@@ -94,19 +94,17 @@ export const name = 'dsh-system-prompt'
 
 /** Register the read-only session prompt channel. */
 export function apply(ctx: Context): void {
-  // 0.2.x `connection.rpc.handle()` registers the channel through the Context
-  // that read the service (`owner.webServer.register(...)`), so install the
-  // channel from a child Context that also injects the Web server. Headless
-  // profiles have no web server, so the read-only view simply has no RPC route.
-  ctx.inject(['webServer'], (webCtx) => {
-    const connection = readService<ConnectionLike>(webCtx, 'connection')
-    const handle = connection?.rpc?.handle
-    if (handle === undefined) return
-    webCtx.effect(() => handle(
+  // `connection.rpc.handle()` mounts the channel on the Connection plugin's own
+  // Context (`owner.webServer.register(...)`), so the bundle patch extends the
+  // `connection` row's inject with `webServer` (alongside its `webStartup`).
+  ctx.effect(() => {
+    const handle = readService<ConnectionLike>(ctx, 'connection')?.rpc?.handle
+    if (handle === undefined) return () => {}
+    return handle(
       CHANNEL,
       (endpoint, payload, signal) => handleEndpoint(ctx, endpoint, payload, signal),
-    ), 'dsh-system-prompt: rpc')
-  })
+    )
+  }, 'dsh-system-prompt: rpc')
 }
 
 /** Build the scoped projection for one live session. */

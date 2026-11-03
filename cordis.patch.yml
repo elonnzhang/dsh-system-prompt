@@ -12,13 +12,14 @@
 # 插件按**包名**引用，Node 的模块解析才能找到已安装的代码。
 # 相对/绝对源码路径只用于 `--patch` 开发 overlay。
 #
-# 0.2.x 的 `connection.rpc.handle()` 会用**读取该服务的 Context** 调
-# `owner.webServer.register(...)`（见 dsh-client-connection 的 handle 实现）。
-# 插件在 host 端用 `ctx.inject(['webServer'], ...)` 从这个子 Context 安装 RPC
-# 通道，所以本 bundle 只需插入插件行；不要覆盖 `connection` 行——它由 web-app
-# 组合注入 `webStartup`（提供 `ctx.webStartup.trustedHosts`），旧版
-# `- id: connection inject: [webRuntime, webServer]` 既顶掉 `webStartup`、又引用
-# 0.2.x 已移除的 `webRuntime`，会让 connection 无法激活。
+# 0.2.x 的 `connection.rpc.handle()` 在 **Connection 插件自己的 Context** 上挂载
+# 路由（`owner.webServer.register(...)`），因此这里给 `connection` 行补上
+# `webServer` 注入；同时必须保留 web-app 组合原本的 `webStartup`（其 config 依赖
+# `ctx.webStartup.trustedHosts`）。注意 `inject` 是整体替换，两个都要写。
+# 旧版写成 `[webRuntime, webServer]` 会顶掉 `webStartup` 并且引用 0.2.x 已移除的
+# `webRuntime`，导致 connection 行无法激活。
+- id: connection
+  inject: [webStartup, webServer]
 
 - insert:
     - id: dsh-system-prompt
